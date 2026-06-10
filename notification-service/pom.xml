@@ -26,6 +26,11 @@
             <artifactId>lombok</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.fooddelivery</groupId>
             <artifactId>common</artifactId>
             <version>0.0.1</version>

@@ -4,6 +4,7 @@ import com.fooddelivery.common.event.PaymentCompletedEvent;
 import com.fooddelivery.orderservice.dto.CreateOrderRequest;
 import com.fooddelivery.orderservice.dto.OrderItemResponse;
 import com.fooddelivery.orderservice.dto.OrderResponse;
+import com.fooddelivery.orderservice.exception.CustomerNotFoundException;
 import com.fooddelivery.orderservice.exception.ItemNotFoundException;
 import com.fooddelivery.orderservice.exception.OrderNotFoundException;
 import com.fooddelivery.orderservice.kafka.producer.OrderEventProducer;
@@ -40,7 +41,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
         Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new OrderNotFoundException(request.getCustomerId()));
+                .orElseThrow(() -> new CustomerNotFoundException(request.getCustomerId()));
 
         List<OrderItem> orderItems = request.getItems().stream()
                 .map(itemRequest -> {
@@ -63,13 +64,14 @@ public class OrderServiceImpl implements OrderService {
 
         orderItems.forEach(item -> item.setOrder(order));
 
-        log.info("Order created: id = {}, customerId = {}, total = {}",
-                order.getId(), customer.getId(), order.getTotal());
+        Order saved = orderRepository.save(order);
 
-        orderRepository.save(order);
+        log.info("Order created: id = {}, customerId = {}, total = {}",
+               saved.getId(), customer.getId(), order.getTotal());
+
         orderEventProducer.sendOrderCreatedEvent(order);
 
-        return toResponse(order);
+        return toResponse(saved);
     }
 
     @Override
