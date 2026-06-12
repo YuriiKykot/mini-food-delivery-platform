@@ -27,13 +27,16 @@ graph TD
 | Java 21 | Primary language |
 | Spring Boot 3.4 | Application framework |
 | Spring Data JPA | Database access |
-| Spring Kafka | Kafka integration |
+| Spring Kafka 3.3 | Kafka integration |
 | Apache Kafka | Async event streaming |
-| PostgreSQL | Relational database |
+| PostgreSQL 16 | Relational database |
 | Liquibase | Database migrations |
 | Docker / Docker Compose | Containerization |
+| Prometheus + Grafana | Monitoring and observability |
 | Lombok | Boilerplate reduction |
-| Maven | Build tool |
+| Maven | Multi-module build tool |
+| JUnit 5 + Mockito | Unit testing |
+| GitHub Actions | CI/CD pipeline |
 
 ---
 
@@ -41,18 +44,24 @@ graph TD
 
 ### order-service (port 8080)
 - Accepts REST requests to create orders
-- Persists orders to PostgreSQL
-- Publishes `OrderCreatedEvent` to Kafka
-- Listens for `PaymentCompletedEvent` and updates order status
+- Validates request data with Bean Validation
+- Persists orders and order items to PostgreSQL via JPA
+- Publishes `OrderCreatedEvent` to Kafka topic `order-created`
+- Listens for `PaymentCompletedEvent` and updates order status to `PAID` or `FAILED`
+- Exposes metrics via Spring Boot Actuator + Micrometer
 
 ### payment-service (port 8081)
 - Listens for `OrderCreatedEvent` from Kafka
-- Simulates payment processing
-- Publishes `PaymentCompletedEvent` to Kafka
+- Simulates payment processing (90% success rate)
+- Publishes `PaymentCompletedEvent` to Kafka topic `payment-completed`
 
 ### notification-service (port 8082)
 - Listens for `PaymentCompletedEvent` from Kafka
 - Simulates email notification (logs to console)
+
+### common (shared library)
+- Contains shared Kafka event classes: `OrderCreatedEvent`, `PaymentCompletedEvent`
+- Used by all three services to avoid code duplication
 
 ---
 
@@ -87,51 +96,17 @@ sequenceDiagram
 
 ### 1. Clone the repository
 
+### Run everything with Docker
+
 ```bash
-git clone https://github.com/your-username/mini-food-delivery-platform.git
+git clone https://github.com/YuriiKykot/mini-food-delivery-platform.git
 cd mini-food-delivery-platform
+mvn clean package -DskipTests
+docker-compose up -d
 ```
 
-### 2. Start infrastructure
-
-```bash
-docker-compose up -d postgres zookeeper kafka kafka-ui
-```
-
-### 3. Build the project
-
-```bash
-mvn clean install -DskipTests
-```
-
-### 4. Run services
-
-Run each service from IntelliJ IDEA or via terminal:
-
-```bash
-# order-service
-cd order-service && mvn spring-boot:run
-
-# payment-service
-cd payment-service && mvn spring-boot:run
-
-# notification-service
-cd notification-service && mvn spring-boot:run
-```
-
-### 5. Insert test data
-
-```sql
-INSERT INTO customers (name, email, phone_number)
-VALUES ('John Doe', 'john@example.com', '+380991234567');
-
-INSERT INTO items (name, price)
-VALUES ('Pizza Margherita', 12.99),
-       ('Cola', 2.50);
-```
-
-### Kafka UI
-Open [http://localhost:8090](http://localhost:8090) to monitor Kafka topics and messages.
+All services start automatically with correct dependency order.
+Database is automatically populated with test data via Liquibase on first startup.
 
 ---
 
@@ -143,9 +118,9 @@ Open [http://localhost:8090](http://localhost:8090) to monitor Kafka topics and 
 |---|---|---|
 | POST | `/orders` | Create a new order |
 | GET | `/orders/{id}` | Get order by ID |
-| GET | `/orders/customer/{customerId}` | Get orders by customer |
+| GET | `/orders/customer/{customerId}` | Get all orders by customer |
 
-### Create Order — Request Body
+### Create Order — Request
 
 ```json
 {
@@ -183,19 +158,61 @@ Open [http://localhost:8090](http://localhost:8090) to monitor Kafka topics and 
 }
 ```
 
+### Error Response
+
+```json
+{
+  "status": 404,
+  "message": "Order not found: 99",
+  "path": "/orders/99",
+  "traceId": "a3f2b1c4-...",
+  "timestamp": "2026-05-20T20:00:00"
+}
+```
+
+---
+
+## Monitoring
+
+| Tool | URL | Credentials |
+|---|---|---|
+| Kafka UI | http://localhost:8090 | — |
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3000 | admin / admin |
+
+Grafana dashboard ID: `19004` (Spring Boot 3.x + Micrometer)
+
+---
+
+## Testing
+
+Unit tests with JUnit 5, Mockito, and AssertJ cover:
+- `OrderServiceImpl` — order creation, status updates, exception handling
+- `PaymentService` — payment processing and event building
+- `NotificationService` — notification logging
+
+Run tests:
+
+```bash
+mvn test -Dnet.bytebuddy.experimental=true
+```
+
+CI/CD pipeline runs automatically on every push to `main` via GitHub Actions.
+
 ---
 
 ## Project Structure
-```bash
+```
 mini-food-delivery-platform/
-├── common/                        # Shared Kafka events
-│   └── src/main/java/com/fooddelivery/common/
-│       └── event/
-│           ├── OrderCreatedEvent.java
-│           └── PaymentCompletedEvent.java
-├── order-service/                 # Main service
-├── payment-service/               # Payment processing
-├── notification-service/          # Email notifications
+├── common/                        # Shared Kafka event classes
+├── order-service/                 # REST API + DB + Kafka producer/consumer
+├── payment-service/               # Kafka consumer/producer
+├── notification-service/          # Kafka consumer
+├── prometheus/
+│   └── prometheus.yml             # Prometheus scrape config
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 # GitHub Actions CI pipeline
 ├── docker-compose.yml
 └── README.md
 ```
@@ -204,7 +221,10 @@ mini-food-delivery-platform/
 ## What I Learned
 
 - Designing microservices with clear bounded contexts
-- Implementing asynchronous communication with Apache Kafka
+- Implementing asynchronous event-driven communication with Apache Kafka
 - Managing database schema migrations with Liquibase
-- Containerizing Spring Boot applications with Docker
-- Handling distributed systems challenges (event ordering, retries, error handling)
+- Containerizing Spring Boot applications with Docker Compose
+- Setting up observability with Prometheus and Grafana
+- Writing unit tests with JUnit 5, Mockito, and AssertJ
+- Automating builds and tests with GitHub Actions CI/CD
+- Handling distributed systems challenges: event ordering, error handling, status synchronization across services
