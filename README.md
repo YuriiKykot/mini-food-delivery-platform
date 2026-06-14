@@ -186,15 +186,26 @@ Grafana dashboard ID: `19004` (Spring Boot 3.x + Micrometer)
 
 ## Testing
 
+### Unit tests
 Unit tests with JUnit 5, Mockito, and AssertJ cover:
 - `OrderServiceImpl` — order creation, status updates, exception handling
 - `PaymentService` — payment processing and event building
 - `NotificationService` — notification logging
 
-Run tests:
+### Integration tests
+Integration tests with Testcontainers spin up real PostgreSQL and Kafka containers:
+- `OrderServiceIntegrationTest` — full HTTP request lifecycle, database persistence, Kafka event flow
+- Tests verify that `POST /orders` saves to database and publishes `OrderCreatedEvent`
+- Tests verify that incoming `PaymentCompletedEvent` correctly updates order status to `PAID` or `FAILED`
 
+Run all tests:
 ```bash
 mvn test -Dnet.bytebuddy.experimental=true
+```
+
+Run only unit tests:
+```bash
+mvn test -Dnet.bytebuddy.experimental=true -Dgroups="!integration"
 ```
 
 CI/CD pipeline runs automatically on every push to `main` via GitHub Actions.
@@ -217,3 +228,17 @@ mini-food-delivery-platform/
 └── README.md
 ```
 ---
+
+## Design Decisions
+
+- **Shared `common` module** — Kafka event classes are shared across services via a dedicated Maven module to avoid duplication and ensure type consistency across producers and consumers
+
+- **Snapshot pricing** — `OrderItem` stores `itemName` and `itemPrice` at the time of order creation, so future price changes in the `items` table do not affect historical orders
+
+- **Async payment flow** — payment processing is intentionally decoupled from order creation via Kafka, allowing each service to scale independently and fail without blocking the order flow
+
+- **Liquibase over Hibernate DDL** — database schema is managed explicitly via Liquibase changesets for production-grade migration control and reproducibility across environments
+
+- **Event-driven status updates** — `order-service` listens for `PaymentCompletedEvent` and updates order status autonomously, keeping services loosely coupled with no direct HTTP calls between them
+
+- **Testcontainers for integration tests** — real PostgreSQL and Kafka instances are spun up in Docker containers during testing, ensuring integration tests reflect production behavior without mocks
