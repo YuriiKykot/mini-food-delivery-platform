@@ -1,4 +1,4 @@
-package com.fooddelivery.orderservice.integration.controller;
+package com.fooddelivery.orderservice.unit.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fooddelivery.orderservice.controller.OrderController;
@@ -6,13 +6,10 @@ import com.fooddelivery.orderservice.dto.CreateOrderRequest;
 import com.fooddelivery.orderservice.dto.OrderItemRequest;
 import com.fooddelivery.orderservice.dto.OrderResponse;
 import com.fooddelivery.orderservice.exception.OrderNotFoundException;
-import com.fooddelivery.orderservice.service.OrderService;
 import com.fooddelivery.orderservice.service.OrderServiceImpl;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;

@@ -217,14 +217,3 @@ mini-food-delivery-platform/
 └── README.md
 ```
 ---
-
-## What I Learned
-
-- Designing microservices with clear bounded contexts
-- Implementing asynchronous event-driven communication with Apache Kafka
-- Managing database schema migrations with Liquibase
-- Containerizing Spring Boot applications with Docker Compose
-- Setting up observability with Prometheus and Grafana
-- Writing unit tests with JUnit 5, Mockito, and AssertJ
-- Automating builds and tests with GitHub Actions CI/CD
-- Handling distributed systems challenges: event ordering, error handling, status synchronization across services
